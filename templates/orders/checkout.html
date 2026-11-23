@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <h1>Оформление заказа</h1>
+
+    <form method="post" class="checkout-layout" novalidate
+          data-checkout-form
+          data-items-total="{{ cart.items_total }}"
+          data-min-order="{{ delivery_settings.min_order_amount }}"
+          data-free-threshold="{{ delivery_settings.free_delivery_threshold }}"
+          data-paid-cost="{{ delivery_settings.paid_delivery_cost }}">
+      {% csrf_token %}
+      <input type="hidden" name="distance_km" data-distance-input>
+
+      <div class="checkout-form">
+        {% if form.non_field_errors %}<p class="form-error">{{ form.non_field_errors }}</p>{% endif %}
+
+        <div class="form-section">
+          <h2>1. Способ получения</h2>
+          <div class="radio-row" data-delivery-type-group>
+            {% for radio in form.delivery_type %}
+              <label class="radio-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="form-section" data-delivery-fields>
+          <h2>2. Адрес доставки</h2>
+          <div class="field">
+            {{ form.address }}
+            {% if form.address.errors %}<p class="field-error">{{ form.address.errors.0 }}</p>{% endif %}
+          </div>
+          <button type="button" class="btn btn--outline btn--sm" data-check-zone>
+            📍 Проверить адрес по геолокации
+          </button>
+          <p class="zone-result" data-zone-result></p>
+        </div>
+
+        <div class="form-section">
+          <h2>{% if delivery_settings.preferred_time_enabled %}3{% else %}2{% endif %}. Контакты</h2>
+          <div class="field-row">
+            <div class="field">
+              <label>{{ form.customer_name.label }}</label>
+              {{ form.customer_name }}
+              {% if form.customer_name.errors %}<p class="field-error">{{ form.customer_name.errors.0 }}</p>{% endif %}
+            </div>
+            <div class="field">
+              <label>{{ form.phone.label }}</label>
+              {{ form.phone }}
+              {% if form.phone.errors %}<p class="field-error">{{ form.phone.errors.0 }}</p>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        {% if delivery_settings.preferred_time_enabled %}
+        <div class="form-section">
+          <h2>4. Время и комментарий</h2>
+          <div class="field">
+            <label>{{ form.preferred_time.label }}</label>
+            {{ form.preferred_time }}
+          </div>
+          <div class="field">
+            <label>{{ form.comment.label }}</label>
+            {{ form.comment }}
+          </div>
+        </div>
+        {% else %}
+        <div class="form-section">
+          <h2>4. Комментарий</h2>
+          <div class="field">{{ form.comment }}</div>
+        </div>
+        {% endif %}
+
+        <div class="form-section">
+          <h2>5. Оплата</h2>
+          <div class="radio-row">
+            {% for radio in form.payment_method %}
+              <label class="radio-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
+            {% endfor %}
+          </div>
+          <p class="hint">Способы оплаты и онлайн-эквайринг подключаются и согласуются с заказчиком отдельно.</p>
+        </div>
+      </div>
+
+      <aside class="cart-summary checkout-summary">
+        <h3>Ваш заказ</h3>
+        <ul class="checkout-summary__list">
+          {% for row in cart %}
+          <li><span>{{ row.product.name }} × {{ row.quantity }}</span><span>{{ row.line_total|floatformat:0 }} ₽</span></li>
+          {% endfor %}
+        </ul>
+        <div class="cart-summary__row">
+          <span>Товары</span><span data-sum-items>{{ cart.items_total|floatformat:0 }} ₽</span>
+        </div>
+        <div class="cart-summary__row">
+          <span>Доставка</span><span data-sum-delivery>{{ delivery_cost|floatformat:0 }} ₽</span>
+        </div>
+        <div class="cart-summary__row cart-summary__row--total">
+          <span>Итого</span><span data-sum-total>{{ cart.items_total|add:delivery_cost|floatformat:0 }} ₽</span>
+        </div>
+        <p class="delivery-note" data-delivery-message>{{ delivery_message }}</p>
+        <button type="submit" class="btn btn--primary btn--lg btn--block">Подтвердить заказ</button>
+      </aside>
+    </form>
+  </div>
+</section>
+{% endblock %}

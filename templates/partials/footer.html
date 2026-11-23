@@ -1,0 +1,56 @@
+{% load static %}
+<footer class="site-footer">
+  <div class="container site-footer__grid">
+    <div class="site-footer__brand">
+      <div class="logo logo--light">
+        <span class="logo__word">Dav</span>
+        <span class="logo__skewer" aria-hidden="true">
+          <svg width="22" height="34" viewBox="0 0 26 40" fill="none">
+            <line x1="13" y1="2" x2="13" y2="38" stroke="#E35F1E" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="13" cy="13" r="7.5" fill="#D9341C"/>
+          </svg>
+        </span>
+        <span class="logo__word">Doner</span>
+        <span class="logo__club">Club</span>
+      </div>
+      <p>{{ site_settings.footer_text }}</p>
+      <div class="site-footer__social">
+        {% if site_settings.instagram_url %}<a href="{{ site_settings.instagram_url }}" target="_blank" rel="noopener">Instagram</a>{% endif %}
+        {% if site_settings.telegram_url %}<a href="{{ site_settings.telegram_url }}" target="_blank" rel="noopener">Telegram</a>{% endif %}
+        {% if site_settings.whatsapp_url %}<a href="{{ site_settings.whatsapp_url }}" target="_blank" rel="noopener">WhatsApp</a>{% endif %}
+      </div>
+    </div>
+
+    <div class="site-footer__col">
+      <h3>Меню</h3>
+      <ul>
+        {% for cat in nav_categories|slice:':6' %}
+        <li><a href="{{ cat.get_absolute_url }}">{{ cat.name }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="site-footer__col">
+      <h3>Контакты</h3>
+      <ul class="site-footer__contacts">
+        <li>📍 {{ delivery_settings.cafe_address|default:"Москва, Кутузовский проспект, 36, строение 15" }}</li>
+        <li>📞 <a href="tel:{{ site_settings.phone }}">{{ site_settings.phone }}</a></li>
+        <li>🕒 {{ delivery_settings.work_hours|default:"Ежедневно, 10:00 – 23:00" }}</li>
+      </ul>
+    </div>
+
+    <div class="site-footer__col">
+      <h3>Доставка</h3>
+      <ul class="site-footer__contacts">
+        <li>Радиус доставки — {{ delivery_settings.delivery_radius_km|default:"1" }} км</li>
+        <li>Бесплатно от {{ delivery_settings.free_delivery_threshold|default:"3 000"|floatformat:0 }} ₽</li>
+        <li>Самовывоз — бесплатно</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="container site-footer__bottom">
+    <span>© {% now "Y" %} Dav Doner Club. Все права защищены.</span>
+    <span class="site-footer__dim">Сайт — демонстрационная версия, фотографии блюд примерные.</span>
+  </div>
+</footer>

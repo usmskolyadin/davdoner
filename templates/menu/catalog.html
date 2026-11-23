@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="catalog-head">
+      <div>
+        <h1>{% if active_category %}{{ active_category.icon }} {{ active_category.name }}{% else %}Всё меню{% endif %}</h1>
+        {% if active_category.description %}<p class="catalog-head__desc">{{ active_category.description }}</p>{% endif %}
+      </div>
+      <label class="sort-select">
+        Сортировать:
+        <select data-sort-select>
+          {% for value, label in sort_labels.items %}
+            <option value="{{ value }}" {% if value == sort %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    {% if not sections %}
+      <p class="empty-state">В этой категории пока нет опубликованных блюд. Загляните чуть позже — мы уже готовим меню 🍳</p>
+    {% endif %}
+
+    {% for section in sections %}
+    <div class="catalog-section" id="cat-{{ section.category.slug }}">
+      {% if not active_category %}
+        <div class="catalog-section__head">
+          <h2>{{ section.category.icon }} {{ section.category.name }}</h2>
+          <a href="{{ section.category.get_absolute_url }}" class="link-arrow">Смотреть все блюда →</a>
+        </div>
+      {% endif %}
+      <div class="dish-grid">
+        {% for product in section.products %}
+          {% include 'partials/product_card.html' %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

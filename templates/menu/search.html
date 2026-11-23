@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <h1>{% if query %}Результаты по запросу «{{ query }}»{% else %}Поиск{% endif %}</h1>
+    {% if query and not results %}
+      <p class="empty-state">Ничего не нашлось. Попробуйте другое слово или посмотрите <a href="{% url 'menu:catalog' %}">всё меню</a>.</p>
+    {% elif not query %}
+      <p class="empty-state">Введите название блюда в строке поиска сверху.</p>
+    {% else %}
+      <div class="dish-grid">
+        {% for product in results %}
+          {% include 'partials/product_card.html' %}
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

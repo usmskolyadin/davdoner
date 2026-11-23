@@ -1,0 +1,50 @@
+{% load static %}
+<header class="site-header">
+  <div class="container site-header__top">
+    <a href="{% url 'pages:home' %}" class="logo" aria-label="{{ site_settings.site_name }} — на главную">
+      <span class="logo__word">Dav</span>
+      <span class="logo__skewer" aria-hidden="true">
+        <svg width="26" height="40" viewBox="0 0 26 40" fill="none">
+          <line x1="13" y1="2" x2="13" y2="38" stroke="#E35F1E" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="13" cy="13" r="7.5" fill="#D9341C"/>
+          <path d="M13 6.2C14.6 4 17.4 3.6 19 5.4" stroke="#4C7A3A" stroke-width="2" stroke-linecap="round" fill="none"/>
+        </svg>
+      </span>
+      <span class="logo__word">Doner</span>
+      <span class="logo__club">Club</span>
+    </a>
+
+    <form class="header-search" action="{% url 'menu:search' %}" method="get" role="search">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><line x1="16.4" y1="16.4" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="search" name="q" placeholder="Искать блюдо, например «донер»" value="{{ request.GET.q|default:'' }}" aria-label="Поиск блюд">
+    </form>
+
+    <div class="site-header__actions">
+      <a href="{% if user.is_authenticated %}{% url 'accounts:profile' %}{% else %}{% url 'accounts:login' %}{% endif %}" class="icon-btn" aria-label="Личный кабинет">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 20c1.5-4 5-6 8-6s6.5 2 8 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span class="icon-btn__label">Кабинет</span>
+      </a>
+      <a href="{% url 'orders:cart' %}" class="icon-btn icon-btn--cart" aria-label="Корзина">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 4h2l2.4 12.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L21 8H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="21" r="1.4" fill="currentColor"/><circle cx="18" cy="21" r="1.4" fill="currentColor"/></svg>
+        <span class="icon-btn__label">Корзина</span>
+        {% if header_cart_count %}<span class="cart-badge" data-cart-badge>{{ header_cart_count }}</span>{% endif %}
+      </a>
+      <button type="button" class="icon-btn icon-btn--burger" aria-label="Меню" data-menu-toggle>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><line x1="4" y1="7" x2="20" y2="7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="17" x2="20" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <nav class="category-nav" data-category-nav aria-label="Категории меню">
+    <div class="container category-nav__scroll">
+      <a href="{% url 'menu:catalog' %}" class="category-pill {% if not active_category %}is-active{% endif %}">
+        <span class="category-pill__icon">☰</span> Всё меню
+      </a>
+      {% for cat in nav_categories %}
+      <a href="{{ cat.get_absolute_url }}" class="category-pill {% if active_category.slug == cat.slug %}is-active{% endif %}">
+        <span class="category-pill__icon">{{ cat.icon|default:'🍽' }}</span> {{ cat.name }}
+      </a>
+      {% endfor %}
+    </div>
+  </nav>
+</header>

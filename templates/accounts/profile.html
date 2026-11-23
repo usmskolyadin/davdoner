@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="section__head">
+      <h1>Личный кабинет</h1>
+      <form action="{% url 'accounts:logout' %}" method="post">{% csrf_token %}<button type="submit" class="link-arrow">Выйти</button></form>
+    </div>
+    <p>Здравствуйте, {{ user.first_name|default:user.username }}!</p>
+
+    <h2 class="profile-orders-title">Мои заказы</h2>
+    {% if not orders %}
+      <p class="empty-state">Пока нет ни одного заказа. <a href="{% url 'menu:catalog' %}">Выбрать блюда</a></p>
+    {% else %}
+      <div class="order-history">
+        {% for order in orders %}
+        <div class="order-history__item">
+          <div class="order-history__head">
+            <strong>Заказ №{{ order.pk }}</strong>
+            <span class="badge badge--status">{{ order.get_status_display }}</span>
+            <span class="order-history__date">{{ order.created_at|date:"d.m.Y H:i" }}</span>
+          </div>
+          <ul>
+            {% for item in order.items.all %}
+              <li>{{ item.product_name }} × {{ item.quantity }} — {{ item.line_total|floatformat:0 }} ₽</li>
+            {% endfor %}
+          </ul>
+          <div class="order-history__total">Итого: {{ order.total|floatformat:0 }} ₽</div>
+        </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

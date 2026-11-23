@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="section">
+  <div class="container auth-page">
+    <h1>Вход в личный кабинет</h1>
+    <form method="post" class="auth-form">
+      {% csrf_token %}
+      {% if form.errors %}<p class="form-error">Неверный логин или пароль.</p>{% endif %}
+      {% for field in form %}
+        <div class="field">
+          <label>{{ field.label }}</label>
+          {{ field }}
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn btn--primary btn--lg btn--block">Войти</button>
+    </form>
+    <p class="auth-switch">Нет аккаунта? <a href="{% url 'accounts:register' %}">Зарегистрироваться</a></p>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ meta_title|default:site_settings.seo_default_title }}{% endblock %}</title>
+<meta name="description" content="{% block description %}{{ meta_description|default:site_settings.seo_default_description }}{% endblock %}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><circle cx=%2216%22 cy=%2216%22 r=%2214%22 fill=%22%23e35f1e%22/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Golos+Text:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/main.css' %}">
+{% block extra_head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+<a class="skip-link" href="#main">Перейти к содержимому</a>
+
+{% include 'partials/header.html' %}
+
+{% if messages %}
+<div class="messages container">
+  {% for message in messages %}
+    <div class="message message--{{ message.tags }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<main id="main">
+{% block content %}{% endblock %}
+</main>
+
+{% include 'partials/footer.html' %}
+
+<div class="toast-container" data-toast-container aria-live="polite"></div>
+
+<script src="{% static 'js/main.js' %}" defer></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

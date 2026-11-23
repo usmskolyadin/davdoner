@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="section">
+  <div class="container success-page">
+    <div class="success-icon">✅</div>
+    <h1>Спасибо, заказ принят!</h1>
+    <p class="success-page__lead">Номер заказа — <strong>№{{ order.pk }}</strong>. Мы свяжемся с вами по телефону {{ order.phone }} для подтверждения.</p>
+
+    <div class="success-card">
+      <div class="cart-summary__row"><span>Способ получения</span><span>{{ order.get_delivery_type_display }}</span></div>
+      {% if order.is_delivery %}<div class="cart-summary__row"><span>Адрес</span><span>{{ order.address }}</span></div>{% endif %}
+      <div class="cart-summary__row"><span>Товары</span><span>{{ order.items_total|floatformat:0 }} ₽</span></div>
+      <div class="cart-summary__row"><span>Доставка</span><span>{{ order.delivery_cost|floatformat:0 }} ₽</span></div>
+      <div class="cart-summary__row cart-summary__row--total"><span>Итого</span><span>{{ order.total|floatformat:0 }} ₽</span></div>
+    </div>
+
+    <a href="{% url 'pages:home' %}" class="btn btn--primary btn--lg">На главную</a>
+  </div>
+</section>
+{% endblock %}

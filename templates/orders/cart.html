@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <h1>Корзина</h1>
+
+    {% if cart.is_empty %}
+      <div class="empty-state empty-state--cart">
+        <p>Ваша корзина пока пуста.</p>
+        <a href="{% url 'menu:catalog' %}" class="btn btn--primary">Перейти в меню</a>
+      </div>
+    {% else %}
+      <div class="cart-layout">
+        <div class="cart-items">
+          {% for row in cart %}
+          <div class="cart-item">
+            <a href="{{ row.product.get_absolute_url }}" class="cart-item__media">
+              {% if row.product.image %}<img src="{{ row.product.image.url }}" alt="{{ row.product.name }}">
+              {% else %}<span class="dish-card__placeholder dish-card__placeholder--small">🍽</span>{% endif %}
+            </a>
+            <div class="cart-item__info">
+              <a href="{{ row.product.get_absolute_url }}" class="cart-item__name">{{ row.product.name }}</a>
+              <span class="cart-item__weight">{{ row.product.weight_display }}</span>
+              {% if row.addons %}
+              <span class="cart-item__addons">
+                {% for addon in row.addons %}{{ addon.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+              </span>
+              {% endif %}
+              <form action="{% url 'orders:remove' %}" method="post" class="cart-item__remove-form">
+                {% csrf_token %}
+                <input type="hidden" name="key" value="{{ row.key }}">
+                <button type="submit">Удалить</button>
+              </form>
+            </div>
+            <form action="{% url 'orders:update' %}" method="post" class="qty-stepper qty-stepper--cart" data-qty-stepper data-cart-key="{{ row.key }}">
+              {% csrf_token %}
+              <input type="hidden" name="key" value="{{ row.key }}">
+              <button type="button" data-qty-minus aria-label="Уменьшить количество">−</button>
+              <input type="number" name="quantity" min="1" value="{{ row.quantity }}" data-qty-input data-auto-submit>
+              <button type="button" data-qty-plus aria-label="Увеличить количество">+</button>
+            </form>
+            <div class="cart-item__total">{{ row.line_total|floatformat:0 }} ₽</div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <aside class="cart-summary">
+          {% if not can_deliver %}
+            <p class="delivery-note delivery-note--warn">{{ delivery_message }}</p>
+          {% elif delivery_cost > 0 %}
+            <p class="delivery-note">{{ delivery_message }}</p>
+          {% else %}
+            <p class="delivery-note delivery-note--ok">🎉 {{ delivery_message }}</p>
+          {% endif %}
+
+          <div class="cart-summary__row">
+            <span>Товары</span>
+            <span>{{ cart.items_total|floatformat:0 }} ₽</span>
+          </div>
+          <div class="cart-summary__row cart-summary__row--muted">
+            <span>Доставка</span>
+            <span>рассчитается при оформлении</span>
+          </div>
+          <div class="cart-summary__row cart-summary__row--total">
+            <span>Итого</span>
+            <span>{{ cart.items_total|floatformat:0 }} ₽</span>
+          </div>
+          <a href="{% url 'orders:checkout' %}" class="btn btn--primary btn--lg btn--block">Оформить заказ</a>
+          <a href="{% url 'menu:catalog' %}" class="link-arrow link-arrow--block">← Продолжить выбор блюд</a>
+        </aside>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
