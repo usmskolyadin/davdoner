@@ -18,6 +18,9 @@
           <div class="order-history__head">
             <strong>Заказ №{{ order.pk }}</strong>
             <span class="badge badge--status">{{ order.get_status_display }}</span>
+            {% if order.payment_method == 'online' %}
+              <span class="badge badge--status">{{ order.get_payment_status_display }}</span>
+            {% endif %}
             <span class="order-history__date">{{ order.created_at|date:"d.m.Y H:i" }}</span>
           </div>
           <ul>

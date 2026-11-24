@@ -45,6 +45,13 @@
               {{ form.customer_name }}
               {% if form.customer_name.errors %}<p class="field-error">{{ form.customer_name.errors.0 }}</p>{% endif %}
             </div>
+            {% if fiscalization_enabled %}
+            <div class="field">
+              <label>{{ form.customer_email.label }}</label>
+              {{ form.customer_email }}
+              {% if form.customer_email.errors %}<p class="field-error">{{ form.customer_email.errors.0 }}</p>{% endif %}
+            </div>
+            {% endif %}
             <div class="field">
               <label>{{ form.phone.label }}</label>
               {{ form.phone }}
@@ -79,7 +86,10 @@
               <label class="radio-pill">{{ radio.tag }} {{ radio.choice_label }}</label>
             {% endfor %}
           </div>
-          <p class="hint">Способы оплаты и онлайн-эквайринг подключаются и согласуются с заказчиком отдельно.</p>
+          {% if form.payment_method.errors %}<p class="field-error">{{ form.payment_method.errors.0 }}</p>{% endif %}
+          {% if not online_payment_enabled %}
+            <p class="hint">Онлайн-оплата временно недоступна. Выберите оплату при получении.</p>
+          {% endif %}
         </div>
       </div>
 

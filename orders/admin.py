@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import DeliverySettings, Order, OrderItem
+from .models import DeliverySettings, Order, OrderItem, PaymentAttempt
 
 STATUS_COLORS = {
     'new': '#2f6fed',
@@ -23,6 +23,19 @@ class OrderItemInline(admin.TabularInline):
         return False
 
 
+class PaymentAttemptInline(admin.TabularInline):
+    model = PaymentAttempt
+    extra = 0
+    readonly_fields = (
+        'provider', 'idempotency_key', 'provider_payment_id', 'payment_url',
+        'amount', 'currency', 'status', 'creation_status', 'created_at', 'updated_at',
+    )
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = (
@@ -30,16 +43,15 @@ class OrderAdmin(admin.ModelAdmin):
         'total', 'status_badge', 'payment_status',
     )
     list_filter = ('status', 'delivery_type', 'payment_method', 'payment_status', 'created_at')
-    list_editable = ('payment_status',)
     search_fields = ('customer_name', 'phone', 'address', 'id')
     date_hierarchy = 'created_at'
     readonly_fields = (
-        'user', 'customer_name', 'phone', 'delivery_type', 'address', 'distance_km',
+        'user', 'customer_name', 'customer_email', 'phone', 'delivery_type', 'address', 'distance_km',
         'comment', 'preferred_time', 'items_total', 'delivery_cost', 'total',
-        'payment_method', 'created_at', 'updated_at',
+        'payment_method', 'payment_status', 'created_at', 'updated_at',
     )
     fields = (
-        ('customer_name', 'phone'),
+        ('customer_name', 'customer_email', 'phone'),
         ('delivery_type', 'address', 'distance_km'),
         ('comment', 'preferred_time'),
         ('items_total', 'delivery_cost', 'total'),
@@ -47,7 +59,7 @@ class OrderAdmin(admin.ModelAdmin):
         ('payment_method', 'payment_status'),
         ('created_at', 'updated_at'),
     )
-    inlines = [OrderItemInline]
+    inlines = [OrderItemInline, PaymentAttemptInline]
     list_per_page = 40
 
     @admin.display(description='Получение')

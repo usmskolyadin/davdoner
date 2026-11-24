@@ -12,4 +12,7 @@ urlpatterns = [
     path('cart/check-zone/', views.check_delivery_zone, name='check_zone'),
     path('checkout/', views.checkout, name='checkout'),
     path('order/<int:pk>/success/', views.order_success, name='success'),
+    path('order/<int:pk>/retry-payment/', views.retry_payment, name='retry_payment'),
+    path('order/<int:pk>/check-payment/', views.check_payment_status, name='check_payment'),
+    path('payments/notification/', views.payment_notification, name='payment_notification'),
 ]

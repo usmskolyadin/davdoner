@@ -1,7 +1,12 @@
+import logging
+
 from django.contrib import messages
-from django.http import JsonResponse
+from django.conf import settings
+from django.db import transaction
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from menu.models import Product
@@ -9,11 +14,62 @@ from menu.models import Product
 from .cart import Cart
 from .forms import CheckoutForm
 from .models import DeliverySettings, Order, OrderItem
+from .payment_gateway import (
+    InvalidPaymentNotification,
+    PaymentGatewayError,
+    PaymentGatewayNotConfigured,
+    get_payment_gateway,
+)
+from .payment_services import apply_payment_notification, reconcile_payment, start_payment
 from .services import calculate_delivery, distance_to_cafe_km, is_within_delivery_zone
+
+logger = logging.getLogger(__name__)
 
 
 def _is_ajax(request):
     return request.headers.get('x-requested-with') == 'XMLHttpRequest'
+
+
+def _remember_order_for_guest(request, order):
+    if order.user_id:
+        return
+    order_ids = request.session.get('guest_order_ids', [])
+    request.session['guest_order_ids'] = (order_ids + [order.pk])[-20:]
+
+
+def _can_access_order(request, order):
+    if order.user_id:
+        return request.user.is_authenticated and request.user.pk == order.user_id
+    return order.pk in request.session.get('guest_order_ids', [])
+
+
+def _create_order_from_checkout(form, request, cart, delivery_cost):
+    order = form.save(commit=False)
+    if request.user.is_authenticated:
+        order.user = request.user
+    order.items_total = cart.items_total
+    order.delivery_cost = delivery_cost
+    order.total = cart.items_total + delivery_cost
+    order.distance_km = request.POST.get('distance_km') or None
+
+    with transaction.atomic():
+        order.save()
+        OrderItem.objects.bulk_create([
+            OrderItem(
+                order=order,
+                product=row['product'],
+                product_name=row['product'].name,
+                unit_price=row['unit_price'],
+                quantity=row['quantity'],
+                addons_snapshot=[
+                    {'name': addon.name, 'price': str(addon.price)} for addon in row['addons']
+                ],
+                line_total=row['line_total'],
+            )
+            for row in cart
+        ])
+    _remember_order_for_guest(request, order)
+    return order
 
 
 @require_POST
@@ -117,34 +173,28 @@ def checkout(request):
             if not can_deliver:
                 messages.error(request, delivery_message)
             else:
-                order = form.save(commit=False)
-                if request.user.is_authenticated:
-                    order.user = request.user
-                order.items_total = cart.items_total
-                order.delivery_cost = delivery_cost
-                order.total = cart.items_total + delivery_cost
-                order.distance_km = request.POST.get('distance_km') or None
-                order.save()
-
-                for row in cart:
-                    OrderItem.objects.create(
-                        order=order,
-                        product=row['product'],
-                        product_name=row['product'].name,
-                        unit_price=row['unit_price'],
-                        quantity=row['quantity'],
-                        addons_snapshot=[
-                            {'name': a.name, 'price': str(a.price)} for a in row['addons']
-                        ],
-                        line_total=row['line_total'],
-                    )
-
+                order = _create_order_from_checkout(form, request, cart, delivery_cost)
                 cart.clear()
+                if order.payment_method == Order.PaymentMethod.ONLINE:
+                    try:
+                        attempt = start_payment(
+                            order,
+                        )
+                    except PaymentGatewayError:
+                        logger.warning('Could not start payment for order %s', order.pk)
+                        messages.error(
+                            request,
+                            'Не удалось открыть оплату. Заказ сохранён; попробуйте начать оплату '
+                            'со страницы заказа позже.',
+                        )
+                        return redirect('orders:success', pk=order.pk)
+                    return redirect(attempt.payment_url)
                 return redirect('orders:success', pk=order.pk)
     else:
         initial = {}
         if request.user.is_authenticated:
             initial['customer_name'] = request.user.get_full_name() or request.user.username
+            initial['customer_email'] = request.user.email
             profile = getattr(request.user, 'profile', None)
             if profile:
                 initial['phone'] = profile.phone
@@ -159,6 +209,8 @@ def checkout(request):
         'delivery_settings': settings_obj,
         'delivery_cost': delivery_cost,
         'delivery_message': delivery_message,
+        'online_payment_enabled': bool(getattr(settings, 'PAYMENT_GATEWAY', '')),
+        'fiscalization_enabled': settings.TOCHKA_FISCALIZATION_ENABLED,
         'meta_title': 'Оформление заказа — Dav Doner Club',
     }
     return render(request, 'orders/checkout.html', context)
@@ -166,6 +218,89 @@ def checkout(request):
 
 def order_success(request, pk):
     order = get_object_or_404(Order, pk=pk)
+    if not _can_access_order(request, order):
+        return HttpResponse(status=404)
     return render(request, 'orders/success.html', {
-        'order': order, 'meta_title': 'Заказ оформлен — Dav Doner Club',
+        'order': order,
+        'online_payment_enabled': bool(getattr(settings, 'PAYMENT_GATEWAY', '')),
+        'can_manage_payment': (
+            order.payment_method == Order.PaymentMethod.ONLINE
+            and order.payment_status in {
+                Order.PaymentStatus.PENDING,
+                Order.PaymentStatus.FAILED,
+                Order.PaymentStatus.CANCELLED,
+            }
+        ),
+        'meta_title': 'Заказ оформлен — Dav Doner Club',
     })
+
+
+@require_POST
+def retry_payment(request, pk):
+    order = get_object_or_404(Order, pk=pk)
+    if not _can_access_order(request, order):
+        return HttpResponse(status=404)
+    if order.payment_method != Order.PaymentMethod.ONLINE:
+        return HttpResponse(status=400)
+    if order.payment_status == Order.PaymentStatus.PAID:
+        messages.info(request, 'Заказ уже оплачен.')
+        return redirect('orders:success', pk=order.pk)
+
+    try:
+        attempt = start_payment(
+            order,
+        )
+    except PaymentGatewayError:
+        logger.warning('Could not retry payment for order %s', order.pk)
+        messages.error(request, 'Не удалось открыть оплату. Попробуйте ещё раз позже.')
+        return redirect('orders:success', pk=order.pk)
+    return redirect(attempt.payment_url)
+
+
+@require_POST
+def check_payment_status(request, pk):
+    order = get_object_or_404(Order, pk=pk)
+    if not _can_access_order(request, order):
+        return HttpResponse(status=404)
+    if order.payment_method != Order.PaymentMethod.ONLINE:
+        return HttpResponse(status=400)
+
+    attempt = order.payment_attempts.exclude(
+        provider_payment_id='',
+    ).order_by('-created_at').first()
+    if attempt is None:
+        messages.error(request, 'У банка пока нет идентификатора платежа для сверки.')
+        return redirect('orders:success', pk=order.pk)
+    try:
+        reconcile_payment(attempt)
+    except PaymentGatewayError:
+        logger.warning('Could not reconcile payment for order %s', order.pk)
+        messages.error(request, 'Не удалось получить подтверждённый статус от банка.')
+    else:
+        messages.success(request, 'Статус платежа обновлён по данным банка.')
+    return redirect('orders:success', pk=order.pk)
+
+
+@csrf_exempt
+@require_POST
+def payment_notification(request):
+    try:
+        gateway = get_payment_gateway()
+    except PaymentGatewayNotConfigured:
+        return HttpResponse(status=503)
+
+    try:
+        notification = gateway.parse_notification(request)
+    except InvalidPaymentNotification:
+        logger.warning('Rejected invalid payment notification')
+        return HttpResponse(status=400)
+    except PaymentGatewayError:
+        logger.warning('Payment provider could not verify notification')
+        return HttpResponse(status=503)
+
+    try:
+        apply_payment_notification(gateway.provider_name, notification)
+    except PaymentGatewayError:
+        logger.warning('Could not apply payment notification')
+        return HttpResponse(status=400)
+    return HttpResponse(status=200)

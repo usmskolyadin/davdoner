@@ -1,7 +1,9 @@
 from decimal import Decimal
+import uuid
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 
 class DeliverySettings(models.Model):
@@ -74,12 +76,17 @@ class Order(models.Model):
         PENDING = 'pending', 'Ожидает оплаты'
         PAID = 'paid', 'Оплачен'
         FAILED = 'failed', 'Ошибка оплаты'
+        CANCELLED = 'cancelled', 'Платёж отменён'
+        REFUND_PENDING = 'refund_pending', 'Возврат обрабатывается'
+        REFUNDED = 'refunded', 'Возвращён'
+        PARTIALLY_REFUNDED = 'partially_refunded', 'Частично возвращён'
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, verbose_name='Пользователь', related_name='orders',
         on_delete=models.SET_NULL, blank=True, null=True,
     )
     customer_name = models.CharField('Имя покупателя', max_length=120)
+    customer_email = models.EmailField('Email покупателя', max_length=254, blank=True)
     phone = models.CharField('Телефон', max_length=32)
 
     delivery_type = models.CharField(
@@ -105,7 +112,7 @@ class Order(models.Model):
         'Способ оплаты', max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.CASH,
     )
     payment_status = models.CharField(
-        'Статус оплаты', max_length=10, choices=PaymentStatus.choices, default=PaymentStatus.PENDING,
+        'Статус оплаты', max_length=20, choices=PaymentStatus.choices, default=PaymentStatus.PENDING,
     )
 
     created_at = models.DateTimeField('Создан', auto_now_add=True)
@@ -122,6 +129,66 @@ class Order(models.Model):
     @property
     def is_delivery(self):
         return self.delivery_type == self.DeliveryType.DELIVERY
+
+
+class PaymentAttempt(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Ожидает оплаты'
+        PAID = 'paid', 'Оплачен'
+        FAILED = 'failed', 'Ошибка оплаты'
+        CANCELLED = 'cancelled', 'Платёж отменён'
+        REFUND_PENDING = 'refund_pending', 'Возврат обрабатывается'
+        REFUNDED = 'refunded', 'Возвращён'
+        PARTIALLY_REFUNDED = 'partially_refunded', 'Частично возвращён'
+
+    class CreationStatus(models.TextChoices):
+        READY = 'ready', 'Готов к созданию'
+        SENDING = 'sending', 'Запрос отправляется'
+        UNKNOWN = 'unknown', 'Результат запроса неизвестен'
+        CREATED = 'created', 'Ссылка создана'
+        REJECTED = 'rejected', 'Запрос отклонён'
+
+    order = models.ForeignKey(
+        Order, verbose_name='Заказ', related_name='payment_attempts', on_delete=models.CASCADE,
+    )
+    provider = models.CharField('Провайдер', max_length=64)
+    idempotency_key = models.UUIDField('Ключ идемпотентности', default=uuid.uuid4, unique=True)
+    provider_payment_id = models.CharField('ID платежа провайдера', max_length=128, blank=True)
+    payment_url = models.URLField('Ссылка на оплату', max_length=2048, blank=True)
+    amount = models.DecimalField('Сумма, ₽', max_digits=9, decimal_places=2)
+    currency = models.CharField('Валюта', max_length=3, default='RUB')
+    status = models.CharField(
+        'Статус', max_length=20, choices=Status.choices, default=Status.PENDING,
+    )
+    creation_status = models.CharField(
+        'Состояние создания платежа', max_length=10,
+        choices=CreationStatus.choices, default=CreationStatus.READY,
+    )
+    created_at = models.DateTimeField('Создана', auto_now_add=True)
+    updated_at = models.DateTimeField('Обновлена', auto_now=True)
+
+    class Meta:
+        verbose_name = 'Попытка онлайн-оплаты'
+        verbose_name_plural = 'Попытки онлайн-оплаты'
+        ordering = ['-created_at']
+        permissions = [
+            ('refund_payment', 'Can request payment refunds'),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['order'],
+                condition=Q(status='pending'),
+                name='one_pending_payment_attempt_per_order',
+            ),
+            models.UniqueConstraint(
+                fields=['provider', 'provider_payment_id'],
+                condition=~Q(provider_payment_id=''),
+                name='unique_provider_payment_id',
+            ),
+        ]
+
+    def __str__(self):
+        return f'Оплата заказа №{self.order_id} ({self.get_status_display()})'
 
 
 class OrderItem(models.Model):
